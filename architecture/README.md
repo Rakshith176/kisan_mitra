@@ -1,10 +1,5 @@
-# 🎨 Generated SVG Architecture Diagrams
-
-## **Capital One Launchpad Hackathon - Agricultural AI Platform**
-
-This directory contains **SVG (Scalable Vector Graphics)** files generated from our Mermaid architecture diagrams. These high-quality vector graphics are perfect for presentations, documentation, and hackathon submissions.
-
-## **📊 Available SVG Diagrams**
+# 🎨 Architecture Diagrams
+## **📊 Available Diagrams**
 
 ### **1. High-Level System Architecture**
 - **File**: `high_level_system_architecture.svg`
