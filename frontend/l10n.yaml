@@ -1,0 +1,12 @@
+arb-dir: assets/i18n
+template-arb-file: app_en.arb
+output-class: AppLocalizations
+output-localization-file: app_localizations.dart
+output-dir: lib/l10n
+preferred-supported-locales:
+  - en
+  - kn
+  - hi
+synthetic-package: false
+untranslated-messages-file: untranslated.txt
+

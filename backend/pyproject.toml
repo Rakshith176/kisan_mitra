@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "farmer-backend"
+version = "0.1.0"
+description = "FastAPI backend for farmer assistant (Phase 0)"
+authors = ["You <you@example.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.30.6"}
+pydantic = "^2.8.2"
+pydantic-settings = "^2.4.0"
+sqlalchemy = "^2.0.32"
+sqlmodel = "^0.0.21"
+alembic = "^1.13.2"
+orjson = "^3.10.7"
+python-multipart = "^0.0.9"
+apscheduler = "^3.10.4"
+greenlet = "^3.0.3"
+# Upgrade google-generativeai to include types.RequestOptions used by llama-index gemini
+google-generativeai = ">=0.8.0,<0.10.0"
+# Optional: genai modern client for Live API examples (can be removed if unused)
+google-genai = "*"
+llama-index = ">=0.11.0"
+httpx = "^0.27.0"
+llama-index-llms-gemini = ">=0.3.0"
+aiofiles = "^24.1.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.5.7"
+black = "^24.8.0"
+isort = "^5.13.2"
+pytest = "^8.3.2"
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
+
+
