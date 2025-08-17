@@ -12,7 +12,7 @@ from .config import settings
 from .logging_utils import configure_logging
 import logging
 from .db import engine, lifespan_db, get_db, AsyncSessionLocal
-from .models import Crop, User, FarmerProfile, UserCropPreference, Conversation, ChatMessage
+from .models import Crop, User, FarmerProfile, UserCropPreference, Conversation, ChatMessage, CropCycle, GrowthStage, CropTask, CropObservation, RiskAlert
 from .schemas import (
     CropsResponse,
     CropItem,
@@ -31,6 +31,7 @@ from .feed.generators import WeatherOverviewGenerator, DynamicCropTipsGenerator,
 from .chat.router import router as chat_router
 from .chat.live_router import router as live_router
 from .rag.router import router as rag_router
+from .routers.crop_cycle import router as crop_cycle_router
 
 
 def create_app() -> FastAPI:
@@ -62,6 +63,46 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"status": "ok", "env": settings.app_env}
 
+    @app.post("/users", response_model=dict)
+    async def create_user(
+        client_id: str,
+        language: str = "en",
+        db: AsyncSession = Depends(get_db),
+    ) -> dict:
+        """Create a new user if it doesn't exist"""
+        try:
+            # Check if user already exists
+            existing_user = await db.get(User, client_id)
+            if existing_user:
+                return {"message": "User already exists", "client_id": client_id}
+            
+            # Create new user
+            new_user = User(
+                client_id=client_id,
+                language=language,
+            )
+            db.add(new_user)
+            
+            # Create basic farmer profile
+            new_profile = FarmerProfile(
+                id=client_id,
+                client_id=client_id,
+            )
+            db.add(new_profile)
+            
+            await db.commit()
+            
+            return {
+                "message": "User created successfully",
+                "client_id": client_id,
+                "language": language
+            }
+            
+        except Exception as e:
+            await db.rollback()
+            logging.getLogger(__name__).error(f"Error creating user: {e}")
+            raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
+
     # Chat WebSocket endpoints (multimodal support)
     # Exposed at: /chat/ws/{session_id}
     app.include_router(chat_router)
@@ -73,6 +114,10 @@ def create_app() -> FastAPI:
     # RAG endpoints
     # Exposed at: /rag/*
     app.include_router(rag_router)
+
+    # Crop Cycle endpoints
+    # Exposed at: /crop_cycle/*
+    app.include_router(crop_cycle_router)
 
     # Chat history (for hydration)
     @app.get("/chat/messages", response_model=GetChatMessagesResponse)

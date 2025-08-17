@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/settings_provider.dart';
 import 'repositories/profile_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import './crop_cycle/screens/planner_main_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -119,7 +120,14 @@ class _PlannerTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text(title));
+    return Consumer(builder: (context, ref, _) {
+      final clientIdAsync = ref.watch(clientIdProvider);
+      return clientIdAsync.when(
+        data: (id) => PlannerMainScreen(clientId: id),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const Center(child: Text('Client not initialized')),
+      );
+    });
   }
 }
 

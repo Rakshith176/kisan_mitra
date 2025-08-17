@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:http/http.dart' as http;
 
 import 'l10n/app_localizations.dart';
 import 'src/app_shell.dart';
@@ -16,6 +17,19 @@ Future<void> main() async {
   var clientId = prefs.getString('clientId');
   clientId ??= const Uuid().v4();
   await prefs.setString('clientId', clientId);
+  
+  // Create user in backend if it doesn't exist
+  try {
+    final response = await http.post(
+      Uri.parse('http://localhost:8080/users?client_id=$clientId&language=en'),
+    );
+    if (response.statusCode == 200) {
+      print('User created/verified in backend: $clientId');
+    }
+  } catch (e) {
+    print('Warning: Could not create user in backend: $e');
+  }
+  
   final langCode = prefs.getString('languageCode') ?? 'en';
   final onboardingDone = prefs.getBool('onboardingDone') ?? false;
 

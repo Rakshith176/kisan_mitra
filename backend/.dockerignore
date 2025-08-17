@@ -1,0 +1,106 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Python cache and virtual environments
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Development and testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.nox
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Documentation
+docs/
+*.md
+README*
+
+# Data files (will be created at runtime)
+data/
+chroma_db/
+
+# Scripts and utilities
+scripts/
+*.js
+*.html
+*.css
+
+# Debug and test files
+debug_*.py
+test_*.py
+*_test.py
+simple_*.py
+example_*.py
+explore_*.py
+extract_*.py
+karnataka_*.py
+monitor_*.py
+process_*.py
+setup_*.py
+
+# PDFs and external files
+pdfs/
+*.pdf
+
+# Frontend files
+frontend/
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -30,6 +30,8 @@ dependencies:
   path_provider: ^2.1.2
   path: ^1.9.0
   flutter_markdown: ^0.6.20
+  http: ^1.2.0
+  freezed_annotation: ^2.4.4
 
 dev_dependencies:
   flutter_test:
@@ -37,6 +39,7 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   build_runner: ^2.4.12
   json_serializable: ^6.8.0
+  freezed: ^2.5.7
 
 flutter:
   uses-material-design: true
