@@ -2,6 +2,8 @@
 
 An intelligent agricultural platform designed specifically for small farmers in India, providing real-time AI-powered recommendations, market intelligence, and weather insights through a voice-first, multilingual interface.
 
+### Application deployed at: [Kisan-Mitra](https://kisan-mitra-482332305468.asia-south2.run.app)
+
 ### **Personal Contact**
 - **Email**: [rakshithhr176@gmail.com]
 - **LinkedIn**: [[rakshith-h-r](https://www.linkedin.com/in/rakshith-h-r/)]
