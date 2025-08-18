@@ -2,6 +2,7 @@
 
 This guide will help you set up and run the Agricultural AI Platform on your local machine. The platform consists of a FastAPI backend and a Flutter frontend.
 
+Application deployed at: [Kisan-Mitra](https://kisan-mitra-482332305468.asia-south2.run.app)
 ## 📋 Prerequisites
 
 ### System Requirements
