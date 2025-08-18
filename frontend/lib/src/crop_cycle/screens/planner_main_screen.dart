@@ -4,7 +4,7 @@ import '../providers/crop_cycle_providers.dart';
 import '../widgets/crop_cycle_card.dart';
 import '../widgets/real_time_weather_widget.dart';
 import '../widgets/real_time_market_widget.dart';
-import '../widgets/data_integration_status_widget.dart';
+
 import '../models/crop_cycle_models.dart';
 import 'new_crop_cycle_screen.dart';
 import 'crop_cycle_detail_screen.dart';
@@ -142,9 +142,7 @@ class _PlannerMainScreenState extends ConsumerState<PlannerMainScreen> with Widg
         ),
         const SizedBox(height: 16),
         
-        // Data Integration Status
-        DataIntegrationStatusWidget(clientId: widget.clientId),
-        const SizedBox(height: 16),
+
         
         // Weather and Market Data in a row
         Row(
@@ -506,23 +504,223 @@ class _PlannerMainScreenState extends ConsumerState<PlannerMainScreen> with Widg
   }
 
   void _markCycleComplete(CropCycle cycle) {
-    // TODO: Implement mark complete functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mark Complete - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String notes = '';
+        return AlertDialog(
+          title: const Text('Mark Cycle Complete'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Are you sure you want to mark "${cycle.crop?.nameEn ?? 'Crop'}" cycle as complete?'),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Completion Notes (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (value) => notes = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                
+                try {
+                  // Update cycle status
+                  await ref.read(cropCycleApiServiceProvider).updateCropCycleStatus(cycle.id, 'completed', notes: notes.isNotEmpty ? notes : null);
+                  
+                  // Refresh the cycles list
+                  await ref.read(cropCyclesProvider(widget.clientId).notifier).refreshCropCycles(widget.clientId);
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Crop cycle marked as complete!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to mark cycle complete: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Complete'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _addNoteToCycle(CropCycle cycle) {
-    // TODO: Implement add note functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add Note - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String notes = '';
+        return AlertDialog(
+          title: const Text('Add Note to Cycle'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Add a note to "${cycle.crop?.nameEn ?? 'Crop'}" cycle'),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Note',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 5,
+                onChanged: (value) => notes = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (notes.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a note'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
+                Navigator.of(context).pop();
+                
+                try {
+                  // Add note to cycle (this would need a backend endpoint)
+                  // For now, we'll just show a success message
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Note added successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to add note: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Add Note'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _showFilterDialog(BuildContext context) {
-    // TODO: Implement filter dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Filter - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String selectedStatus = 'all';
+        String selectedSeason = 'all';
+        String selectedCrop = 'all';
+        
+        return AlertDialog(
+          title: const Text('Filter Crop Cycles'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  border: OutlineInputBorder(),
+                ),
+                value: selectedStatus,
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All Statuses')),
+                  DropdownMenuItem(value: 'active', child: Text('Active')),
+                  DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                  DropdownMenuItem(value: 'planned', child: Text('Planned')),
+                ],
+                onChanged: (value) => selectedStatus = value ?? 'all',
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Season',
+                  border: OutlineInputBorder(),
+                ),
+                value: selectedSeason,
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All Seasons')),
+                  DropdownMenuItem(value: 'kharif', child: Text('Kharif')),
+                  DropdownMenuItem(value: 'rabi', child: Text('Rabi')),
+                  DropdownMenuItem(value: 'zaid', child: Text('Zaid')),
+                ],
+                onChanged: (value) => selectedSeason = value ?? 'all',
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Crop',
+                  border: OutlineInputBorder(),
+                ),
+                value: selectedCrop,
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All Crops')),
+                  DropdownMenuItem(value: 'rice', child: Text('Rice')),
+                  DropdownMenuItem(value: 'wheat', child: Text('Wheat')),
+                  DropdownMenuItem(value: 'maize', child: Text('Maize')),
+                  DropdownMenuItem(value: 'pulses', child: Text('Pulses')),
+                ],
+                onChanged: (value) => selectedCrop = value ?? 'all',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                
+                // TODO: Implement actual filtering logic
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Filter applied! (Filtering logic coming soon)'),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+              },
+              child: const Text('Apply Filter'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

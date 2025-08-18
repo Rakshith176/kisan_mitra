@@ -144,7 +144,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       setState(() => _isLoading = true);
       
       final apiService = ref.read(cropCycleApiServiceProvider);
-      await apiService.deleteTask(widget.cycleId, widget.task.id, widget.clientId);
+      await apiService.deleteTask(widget.cycleId, widget.task.id);
       
       // Refresh the tasks list
       ref.read(tasksProvider((widget.cycleId, widget.clientId)).notifier)

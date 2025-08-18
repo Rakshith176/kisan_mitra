@@ -10,14 +10,9 @@ langchain>=0.3.10
 langchain-google-genai>=0.3.10
 langchain-community>=0.3.10
 langchain-core>=0.3.0
-langchain-schema>=0.1.0
-langchain-output-parsers>=0.1.0
-langchain-prompts>=0.1.0
-langchain-agents>=0.1.0
 
 # Web Search and Information Retrieval
 tavily-python>=0.3.0
-tavily>=0.3.0
 
 # Database and ORM
 sqlalchemy>=2.0.32
@@ -36,7 +31,6 @@ greenlet>=3.0.3
 # AI and ML capabilities
 llama-index>=0.11.0
 llama-index-core>=0.11.0
-llama-index-llms>=0.11.0
 llama-index-llms-gemini>=0.3.0
 httpx>=0.27.0
 

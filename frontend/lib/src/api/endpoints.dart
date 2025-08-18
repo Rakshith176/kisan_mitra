@@ -7,6 +7,7 @@ class ApiConfig {
   static const String catalogCrops = '/catalog/crops';
   static String profile(String clientId) => '/profiles/$clientId';
   static const String feed = '/feed';
+  static const String marketPrices = '/market/prices';
   
   /// WebSocket endpoint for chat
   /// Matches the backend WebSocket endpoint: /chat/ws/{session_id}

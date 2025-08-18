@@ -46,14 +46,14 @@ class ChatAgent:
                 temperature=0.7,
                 convert_system_message_to_human=True
             )
-            
+            self.supports_vision = True
             # Check if the model supports vision
-            if "gemini-2.5-flash" in settings.gemini_model.lower():
-                self.supports_vision = True
-                logger.info(f"Chat agent initialized with vision-capable model: {settings.gemini_model}")
-            else:
-                self.supports_vision = False
-                logger.warning(f"Model {settings.gemini_model} may not support vision. Image processing may fail.")
+            # if "gemini-2.5-flash" in settings.gemini_model.lower():
+            #     self.supports_vision = True
+            #     logger.info(f"Chat agent initialized with vision-capable model: {settings.gemini_model}")
+            # else:
+            #     self.supports_vision = False
+            #     logger.warning(f"Model {settings.gemini_model} may not support vision. Image processing may fail.")
             
             # Initialize RAG service
             self.rag_service = RAGService()
@@ -176,8 +176,105 @@ class ChatAgent:
         @tool
         async def get_market_info(crop: str = None) -> str:
             """Get market price information for crops."""
-            # TODO: Integrate with actual market service
-            return "Market prices are stable. Consider selling in next 2-3 weeks."
+            try:
+                # Import the Karnataka market tool
+                from app.services.karnataka_market_tool import karnataka_tool
+                
+                if crop:
+                    # Get specific crop prices
+                    crop_data = await karnataka_tool.get_prices_by_commodity(crop, user_profile="farmer")
+                    
+                    if crop_data.get("status") == "success":
+                        # Format the response for chat
+                        response = f"🌾 **{crop.title()} Market Prices** (Karnataka)\n\n"
+                        
+                        # Add statistics
+                        stats = crop_data.get("statistics", {})
+                        if stats.get("average_price"):
+                            response += f"📊 **Market Overview**:\n"
+                            response += f"• Average Price: ₹{stats['average_price']}/quintal\n"
+                            response += f"• Price Range: ₹{stats['min_price']} - ₹{stats['max_price']}/quintal\n"
+                            response += f"• Markets Available: {crop_data.get('total_markets', 0)}\n\n"
+                        
+                        # Add top prices
+                        prices = crop_data.get("prices", [])
+                        if prices:
+                            response += f"🏆 **Top Market Prices**:\n"
+                            for i, price in enumerate(prices[:5], 1):  # Top 5
+                                response += f"{i}. {price['market']}: ₹{price['modal_price']}/{price['unit']}\n"
+                            response += "\n"
+                        
+                        # Add insights
+                        insights = crop_data.get("insights", [])
+                        if insights:
+                            response += f"💡 **Market Insights**:\n"
+                            for insight in insights[:3]:  # Top 3 insights
+                                response += f"• {insight}\n"
+                            response += "\n"
+                        
+                        # Add recommendation
+                        recommendation = crop_data.get("recommendation", "")
+                        if recommendation:
+                            response += f"🎯 **Recommendation**: {recommendation}\n\n"
+                        
+                        response += f"📅 Last Updated: {crop_data.get('last_updated', 'today')}\n"
+                        response += f"📊 Data Source: {crop_data.get('data_source', 'Karnataka Government')}"
+                        
+                        return response
+                    
+                    elif crop_data.get("status") == "no_data":
+                        return f"❌ No market data found for {crop} at the moment. The Karnataka government website may be temporarily unavailable or the crop may not be in season."
+                    
+                    else:
+                        return f"❌ Error fetching market data for {crop}: {crop_data.get('message', 'Unknown error')}"
+                
+                else:
+                    # Get general market overview
+                    overview_data = await karnataka_tool.get_market_overview(user_profile="farmer")
+                    
+                    if overview_data.get("status") == "success":
+                        response = "🌾 **Karnataka Market Overview**\n\n"
+                        
+                        # Add market summary
+                        market_summary = overview_data.get("market_overview", {})
+                        if market_summary.get("total_commodities"):
+                            response += f"📊 **Market Summary**:\n"
+                            response += f"• Total Commodities: {market_summary['total_commodities']}\n"
+                            response += f"• Average Price: ₹{market_summary['average_price']}/quintal\n"
+                            response += f"• Price Range: ₹{market_summary['price_range']}/quintal\n\n"
+                        
+                        # Add top commodities
+                        top_commodities = market_summary.get("top_commodities", [])
+                        if top_commodities:
+                            response += f"🏆 **Top Value Crops**:\n"
+                            for i, crop in enumerate(top_commodities[:5], 1):
+                                response += f"{i}. {crop['name']} ({crop['variety']}): ₹{crop['price']}/{crop['unit']} at {crop['market']}\n"
+                            response += "\n"
+                        
+                        # Add insights
+                        insights = overview_data.get("insights", [])
+                        if insights:
+                            response += f"💡 **Market Insights**:\n"
+                            for insight in insights[:3]:
+                                response += f"• {insight}\n"
+                            response += "\n"
+                        
+                        # Add recommendation
+                        recommendation = overview_data.get("recommendation", "")
+                        if recommendation:
+                            response += f"🎯 **Recommendation**: {recommendation}\n\n"
+                        
+                        response += f"📅 Last Updated: {market_summary.get('last_updated', 'today')}\n"
+                        response += f"📊 Data Source: {overview_data.get('data_source', 'Karnataka Government')}"
+                        
+                        return response
+                    
+                    else:
+                        return f"❌ Error fetching market overview: {overview_data.get('message', 'Unknown error')}"
+                
+            except Exception as e:
+                logger.error(f"Error in market info tool: {e}")
+                return f"❌ I encountered an error accessing market information: {str(e)}. Please try again later or check the market analysis section for current prices."
 
         # Create a weather tool that can access the agent instance
         @tool
@@ -251,7 +348,6 @@ class ChatAgent:
 Your capabilities include:
 - Accessing detailed agricultural information from our knowledge base
 - Providing comprehensive government scheme information (PM KISAN, PMKSY, PMFBY, etc.)
-- Retrieving budget allocations, eligibility criteria, and application processes
 - **Providing real-time weather data and agricultural recommendations (automatically uses your profile location - no need to specify location)**
 - Accessing market price information for crops
 - Giving crop-specific tips and advice
@@ -271,14 +367,15 @@ Your capabilities include:
 
 **When to Use Web Search:**
 - Questions about current events, recent government announcements, or latest news
+- Providing comprehensive government scheme information (PM KISAN, PMKSY, PMFBY, etc.)
+- Retrieving budget allocations, eligibility criteria, and application processes
 - Real-time market information, price updates, or demand trends
 - Recent policy changes, new schemes, or updated guidelines
 - Current weather patterns, climate updates, or seasonal changes
 - Any information that might be time-sensitive or require current data
 
 Always be helpful, accurate, and farmer-friendly. Use the available tools when relevant to provide the most up-to-date and comprehensive information. When in doubt about current information, use the web search tools to get the latest data.
-
-Available tools: {tools}"""),
+"""),
                 MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}"),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
@@ -330,7 +427,7 @@ Available tools: {tools}"""),
             
             # Generate audio if requested
             audio_data = await self._generate_audio(response.text, context.language)
-            
+            print(audio_data)
             return ChatResponse(
                 text=response.text,
                 audio=audio_data,
@@ -392,34 +489,70 @@ Available tools: {tools}"""),
             
             logger.info(f"Processing image: {mime_type}, size: {len(image_data)} bytes")
             
-            # Create image message for LangChain
-            image_message = HumanMessage(
-                content=[
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{request.content}"
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": f"Please analyze this image and provide agricultural advice. User context: Language: {context.language}, Crops: {context.crop_preferences or 'Not specified'}, Location: {context.location or 'Not specified'}"
-                    }
-                ]
-            )
+            # Create image message for LangChain using proper format
+            from langchain_core.messages import HumanMessage
             
-            # Process with LangChain agent
+            # Create the image content with proper LangChain format
+            image_content = [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{request.content}"
+                    }
+                },
+                {
+                    "type": "text",
+                    "text": f"Please analyze this image and provide agricultural advice. User context: Language: {context.language}, Crops: {context.crop_preferences or 'Not specified'}, Location: {context.location or 'Not specified'}"
+                }
+            ]
+            
+            # Create the human message with image content
+            image_message = HumanMessage(content=image_content)
+            logger.info(f"Created image message with {len(image_content)} content parts")
+            
+            # Process image directly with a fresh model instance (bypass agent for images)
             try:
-                response = await self.agent.ainvoke({
-                    "input": image_message,
-                    "chat_history": self._get_chat_history(context),
-                    "tools": [tool.name for tool in self.tools]
-                })
+                logger.info("Processing image directly with fresh model instance")
                 
-                response_text = response.get("output", "I'm sorry, I couldn't analyze the image.")
+                # Create a fresh model instance to avoid event loop issues
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                from langchain_core.messages import SystemMessage
                 
-            except Exception as agent_error:
-                logger.error(f"LangChain agent error during image processing: {agent_error}")
+                fresh_llm = ChatGoogleGenerativeAI(
+                    model=settings.gemini_model,
+                    google_api_key=settings.google_api_key,
+                    temperature=0.7,
+                    convert_system_message_to_human=True
+                )
+                
+                # Create a system message for agricultural context
+                system_message = SystemMessage(content=f"""You are an agricultural advisor for Indian farmers. Analyze this image and provide helpful agricultural advice.
+
+User context:
+- Language: {context.language}
+- Crops: {context.crop_preferences or 'Not specified'}
+- Location: {context.location or 'Not specified'}
+
+Please provide:
+1. What you see in the image
+2. Agricultural analysis and recommendations
+3. Any potential problems or solutions
+4. Relevant farming advice
+
+Be helpful, accurate, and farmer-friendly.""")
+                
+                # Invoke the fresh model with system message and image
+                response = await fresh_llm.ainvoke([system_message, image_message])
+                
+                # Extract the response text
+                response_text = response.content
+                
+                logger.info(f"Fresh model response received, length: {len(response_text)}")
+                
+            except Exception as model_error:
+                logger.error(f"Fresh model error during image processing: {model_error}")
+                import traceback
+                traceback.print_exc()
                 response_text = "I can see you've shared an image, but I'm having trouble analyzing it right now. Please try again in a moment, or describe what you see in the image and I'll help you with agricultural advice."
             
             logger.info(f"Image processed successfully, response length: {len(response_text)}")
@@ -444,17 +577,27 @@ Available tools: {tools}"""),
     ) -> ChatResponse:
         """Process text/audio request using LangChain agent."""
         try:
+            # Get chat history
+            chat_history = self._get_chat_history(context)
+            
             # Build input for agent
             agent_input = {
                 "input": request.content,
-                "chat_history": self._get_chat_history(context),
-                "tools": [tool.name for tool in self.tools]
+                "chat_history": chat_history
             }
+            
+            logger.info(f"Processing text request, chat history length: {len(chat_history)}")
             
             # Process with LangChain agent
             response = await self.agent.ainvoke(agent_input)
             
-            response_text = response.get("output", "I'm sorry, I couldn't generate a response.")
+            # Extract response text
+            if isinstance(response, dict):
+                response_text = response.get("output", "I'm sorry, I couldn't generate a response.")
+            else:
+                response_text = str(response)
+            
+            logger.info(f"Text response generated, length: {len(response_text)}")
             
             # Update chat history
             self._update_chat_history(context, request.content, response_text)
@@ -467,6 +610,8 @@ Available tools: {tools}"""),
             
         except Exception as e:
             logger.error(f"Error processing text request: {e}")
+            import traceback
+            traceback.print_exc()
             return ChatResponse(
                 text="I encountered an error processing your request. Please try again.",
                 audio=None

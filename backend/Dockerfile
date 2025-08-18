@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Backend Service
+# Multi-stage Dockerfile for Backend Service Only
 # Stage 1: Base Python image with system dependencies
 FROM python:3.11-slim as base
 
@@ -43,7 +43,7 @@ WORKDIR /app
 # Copy dependencies from previous stage
 COPY --from=dependencies /root/.local /root/.local
 
-# Copy application code
+# Copy backend application code
 COPY . .
 
 # Create necessary directories

@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:developer' as developer;
+import 'dart:typed_data';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart';
 import '../src/api/endpoints.dart';
 import 'web_recorder.dart';
 
@@ -23,6 +25,7 @@ class ChatAPIService {
   // Callbacks for UI updates
   Function(String)? onTextResponse;
   Function(String)? onAudioResponse;
+  Function(String, String)? onImageResponse; // imageBase64, mimeType
   Function(String)? onError;
   Function(bool)? onConnectionStatusChanged;
   Function()? onTurnComplete;
@@ -118,6 +121,7 @@ class ChatAPIService {
           if (data != null) {
             final text = data['text'];
             final audio = data['audio'];
+            final image = data['image'];
             final metadata = data['metadata'];
             
             if (text != null) {
@@ -127,7 +131,12 @@ class ChatAPIService {
             if (audio != null) {
               onAudioResponse?.call(audio);
             }
-            
+
+            if (image != null) {
+              final mimeType = data['mime_type'] ?? 'image/jpeg';
+              onImageResponse?.call(image, mimeType);
+            }
+          
             // Chat responses are always complete
             developer.log('Chat response completed with metadata: $metadata', name: 'ChatAPIService');
             onTurnComplete?.call();
@@ -135,28 +144,28 @@ class ChatAPIService {
           break;
           
         case 'tool_result':
-          final text = response['text'] ?? response['result'] ?? 'Tool executed successfully';
-          final metadata = response['metadata'];
-          if (text != null) {
-            onTextResponse?.call(text);
+          final toolText = response['text'] ?? response['result'] ?? 'Tool executed successfully';
+          final toolMetadata = response['metadata'];
+          if (toolText != null) {
+            onTextResponse?.call(toolText);
           }
-          developer.log('Tool result received: $metadata', name: 'LiveAPIService');
+          developer.log('Tool result received: $toolMetadata', name: 'ChatAPIService');
           break;
           
         case 'error':
-          final message = response['text'] ?? response['message'] ?? 'Unknown error';
+          final errorMessage = response['text'] ?? response['message'] ?? 'Unknown error';
           final fallback = response['fallback'] ?? false;
-          onError?.call(message);
-          developer.log('Error received (fallback: $fallback): $message', name: 'LiveAPIService');
+          onError?.call(errorMessage);
+          developer.log('Error received (fallback: $fallback): $errorMessage', name: 'ChatAPIService');
           break;
           
         default:
-          developer.log('Unknown response type: $type - Data: $response', name: 'LiveAPIService');
+          developer.log('Unknown response type: $type - Data: $response', name: 'ChatAPIService');
           break;
       }
     } catch (e) {
       onError?.call('Response parsing error: $e');
-      developer.log('Response parsing error: $e', name: 'LiveAPIService');
+      developer.log('Response parsing error: $e', name: 'ChatAPIService');
     }
   }
   
@@ -364,21 +373,21 @@ class ChatAPIService {
           final audioBytes = await tempFile.readAsBytes();
           final base64Audio = base64Encode(audioBytes);
           
-                  final message = {
-          'type': 'request',
-          'data': {
-            'media_type': 'audio',
-            'content': base64Audio,
-            'mime_type': 'audio/pcm;rate=16000',
-            'metadata': {
-              'language': language,
-              'sample_rate': 16000,
-            }
-          },
-          'message_id': DateTime.now().millisecondsSinceEpoch.toString(),
-        };
+          final audioMessage = {
+            'type': 'request',
+            'data': {
+              'media_type': 'audio',
+              'content': base64Audio,
+              'mime_type': 'audio/pcm;rate=16000',
+              'metadata': {
+                'language': language,
+                'sample_rate': 16000,
+              }
+            },
+            'message_id': DateTime.now().millisecondsSinceEpoch.toString(),
+          };
           
-          _channel?.sink.add(jsonEncode(message));
+          _channel?.sink.add(jsonEncode(audioMessage));
           developer.log('Mobile audio message sent successfully', name: 'ChatAPIService');
           return path;
         }
@@ -425,6 +434,141 @@ class ChatAPIService {
       return true;
     } else {
       return await _audioRecorder.hasPermission();
+    }
+  }
+
+  Future<void> sendImageMessage({String language = 'en'}) async {
+    if (!_isConnected) {
+      onError?.call('Not connected to Chat API');
+      return;
+    }
+
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image == null) {
+        return; // User cancelled
+      }
+
+      // Read image as bytes
+      final Uint8List imageBytes = await image.readAsBytes();
+      final String base64Image = base64Encode(imageBytes);
+      
+      // Determine MIME type based on file extension
+      String mimeType = 'image/jpeg'; // default
+      final String extension = image.path.split('.').last.toLowerCase();
+      switch (extension) {
+        case 'png':
+          mimeType = 'image/png';
+          break;
+        case 'gif':
+          mimeType = 'image/gif';
+          break;
+        case 'webp':
+          mimeType = 'image/webp';
+          break;
+        case 'jpg':
+        case 'jpeg':
+        default:
+          mimeType = 'image/jpeg';
+          break;
+      }
+
+      final message = {
+        'type': 'request',
+        'data': {
+          'media_type': 'image',
+          'content': base64Image,
+          'mime_type': mimeType,
+          'metadata': {
+            'language': language,
+            'filename': image.name,
+            'size': imageBytes.length,
+          }
+        },
+        'message_id': DateTime.now().millisecondsSinceEpoch.toString(),
+      };
+
+      _channel?.sink.add(jsonEncode(message));
+      developer.log('Image message sent successfully', name: 'ChatAPIService');
+      
+    } catch (e) {
+      onError?.call('Failed to send image: $e');
+      developer.log('Image send error: $e', name: 'ChatAPIService');
+    }
+  }
+
+  Future<void> sendCameraImage({String language = 'en'}) async {
+    if (!_isConnected) {
+      onError?.call('Not connected to Chat API');
+      return;
+    }
+
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image == null) {
+        return; // User cancelled
+      }
+
+      // Read image as bytes
+      final Uint8List imageBytes = await image.readAsBytes();
+      final String base64Image = base64Encode(imageBytes);
+      
+      // Determine MIME type based on file extension
+      String mimeType = 'image/jpeg'; // default
+      final String extension = image.path.split('.').last.toLowerCase();
+      switch (extension) {
+        case 'png':
+          mimeType = 'image/png';
+          break;
+        case 'gif':
+          mimeType = 'image/gif';
+          break;
+        case 'webp':
+          mimeType = 'image/webp';
+          break;
+        case 'jpg':
+        case 'jpeg':
+        default:
+          mimeType = 'image/jpeg';
+          break;
+      }
+
+      final message = {
+        'type': 'request',
+        'data': {
+          'media_type': 'image',
+          'content': base64Image,
+          'mime_type': mimeType,
+          'metadata': {
+            'language': language,
+            'filename': image.name,
+            'size': imageBytes.length,
+            'source': 'camera',
+          }
+        },
+        'message_id': DateTime.now().millisecondsSinceEpoch.toString(),
+      };
+
+      _channel?.sink.add(jsonEncode(message));
+      developer.log('Camera image message sent successfully', name: 'ChatAPIService');
+      
+    } catch (e) {
+      onError?.call('Failed to send camera image: $e');
+      developer.log('Camera image send error: $e', name: 'ChatAPIService');
     }
   }
 }

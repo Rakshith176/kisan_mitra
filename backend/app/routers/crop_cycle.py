@@ -2252,3 +2252,173 @@ async def get_crop_cycle_risks(
     except Exception as e:
         logger.error(f"Error fetching risks: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching risks: {str(e)}")
+
+# ============================================================================
+# AI-Powered Real-Time Recommendations
+# ============================================================================
+
+@router.post("/ai-recommendations", response_model=List[Dict[str, Any]])
+async def get_ai_recommendations(
+    client_id: str = Query(..., description="Farmer's client ID"),
+    include_weather: bool = Body(True, description="Include weather-based recommendations"),
+    include_market: bool = Body(True, description="Include market-based recommendations"),
+    include_soil: bool = Body(True, description="Include soil-based recommendations"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get real-time AI-powered farming recommendations
+    
+    This endpoint provides intelligent, context-aware recommendations by:
+    - Analyzing real-time weather conditions
+    - Monitoring market prices and trends
+    - Assessing soil health and conditions
+    - Tracking crop growth stages
+    - Generating personalized action items
+    
+    The system uses LLM integration to provide natural language recommendations
+    and prioritizes actions based on urgency and impact.
+    """
+    try:
+        # Verify user exists
+        user = await db.get(User, client_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get farmer profile for location data
+        farmer_profile = await get_farmer_profile(db, client_id)
+        if not farmer_profile:
+            raise HTTPException(status_code=404, detail="Farmer profile not found")
+        
+        # Get location data
+        location = {
+            "lat": farmer_profile.get("lat", 12.9716),  # Default to Bangalore
+            "lon": farmer_profile.get("lon", 77.5946),
+            "pincode": farmer_profile.get("pincode")
+        }
+        
+        # Get active crop cycles
+        from sqlmodel import select
+        
+        cycles_result = await db.execute(
+            select(CropCycle).where(CropCycle.client_id == client_id, CropCycle.status != "completed")
+        )
+        crop_cycles = cycles_result.scalars().all()
+        
+        # Convert crop cycles to dict format for the service
+        cycles_data = []
+        for cycle in crop_cycles:
+            cycle_dict = {
+                "id": cycle.id,
+                "crop": {"nameEn": cycle.crop_name} if cycle.crop_name else None,
+                "variety": cycle.variety,
+                "currentStage": cycle.current_stage,
+                "startDate": cycle.start_date,
+                "tasks": []
+            }
+            
+            # Get tasks for this cycle
+            tasks_result = await db.execute(
+                select(CropTask).where(CropTask.cycle_id == cycle.id)
+            )
+            tasks = tasks_result.scalars().all()
+            
+            for task in tasks:
+                task_dict = {
+                    "id": task.id,
+                    "taskName": task.task_name,
+                    "status": task.status.value if hasattr(task.status, 'value') else str(task.status),
+                    "dueDate": task.due_date.isoformat() if task.due_date else None
+                }
+                cycle_dict["tasks"].append(task_dict)
+            
+            cycles_data.append(cycle_dict)
+        
+        # Import and use the AI recommendation service
+        from app.services.ai_recommendation_service import ai_recommendation_service
+        
+        # Generate real-time recommendations
+        recommendations = await ai_recommendation_service.generate_real_time_recommendations(
+            client_id=client_id,
+            location=location,
+            crop_cycles=cycles_data,
+            include_weather=include_weather,
+            include_market=include_market,
+            include_soil=include_soil
+        )
+        
+        # Convert recommendations to response format
+        recommendations_response = []
+        for rec in recommendations:
+            rec_data = {
+                "recommendation_id": rec.recommendation_id,
+                "title": rec.title,
+                "description": rec.description,
+                "recommendation_type": rec.recommendation_type.value,
+                "priority": rec.priority.value,
+                "action_items": rec.action_items,
+                "reasoning": rec.reasoning,
+                "expected_impact": rec.expected_impact,
+                "urgency_hours": rec.urgency_hours,
+                "data_sources": rec.data_sources,
+                "created_at": rec.created_at.isoformat(),
+                "expires_at": rec.expires_at.isoformat() if rec.expires_at else None
+            }
+            recommendations_response.append(rec_data)
+        
+        logger.info(f"Generated {len(recommendations_response)} AI recommendations for client {client_id}")
+        return recommendations_response
+        
+    except Exception as e:
+        logger.error(f"Error generating AI recommendations: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating AI recommendations: {str(e)}")
+
+@router.get("/ai-recommendations/{client_id}", response_model=List[Dict[str, Any]])
+async def get_cached_ai_recommendations(
+    client_id: str,
+    max_recommendations: int = Query(10, description="Maximum number of recommendations to return"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get cached AI recommendations for a client
+    
+    This endpoint returns previously generated recommendations
+    that are still valid and relevant.
+    """
+    try:
+        # Verify user exists
+        user = await db.get(User, client_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Import and use the AI recommendation service
+        from app.services.ai_recommendation_service import ai_recommendation_service
+        
+        # Get cached recommendations
+        recommendations = await ai_recommendation_service.get_recommendations_for_client(
+            client_id, max_recommendations
+        )
+        
+        # Convert to response format
+        recommendations_response = []
+        for rec in recommendations:
+            rec_data = {
+                "recommendation_id": rec.recommendation_id,
+                "title": rec.title,
+                "description": rec.description,
+                "recommendation_type": rec.recommendation_type.value,
+                "priority": rec.priority.value,
+                "action_items": rec.action_items,
+                "reasoning": rec.reasoning,
+                "expected_impact": rec.expected_impact,
+                "urgency_hours": rec.urgency_hours,
+                "data_sources": rec.data_sources,
+                "created_at": rec.created_at.isoformat(),
+                "expires_at": rec.expires_at.isoformat() if rec.expires_at else None
+            }
+            recommendations_response.append(rec_data)
+        
+        return recommendations_response
+        
+    except Exception as e:
+        logger.error(f"Error fetching cached AI recommendations: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching cached AI recommendations: {str(e)}")

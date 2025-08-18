@@ -1,6 +1,6 @@
 """
 Router for Gemini Live API endpoints.
-This provides real-time chat capabilities with tool support and audio responses.
+This provides real-time chat capabilities with simplified tool support.
 """
 
 import asyncio
@@ -10,7 +10,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, De
 from fastapi.responses import StreamingResponse
 import json
 
+# Use real Live API agent
 from app.chat.live_agent import live_api_agent
+# from app.chat.mock_live_agent import mock_live_api_agent as live_api_agent  # Commented out mock agent
+
 from app.chat.schemas import ConversationContext
 from app.config import settings
 
@@ -31,6 +34,18 @@ class LiveAPIConnectionManager:
         await websocket.accept()
         self.active_connections[session_id] = websocket
         logger.info(f"Live API WebSocket connected: {session_id}")
+        
+        # Send experimental banner message
+        try:
+            await websocket.send_json({
+                "type": "experimental_banner",
+                "title": "🧪 EXPERIMENTAL LIVE API",
+                "message": "This Live API integration is experimental for multilingual audio responses. It demonstrates real-time voice conversations with AI agricultural assistance.",
+                "details": "Features: Real-time streaming, voice input/output, tool integration, multilingual support",
+                "status": "demo_mode"
+            })
+        except Exception as e:
+            logger.warning(f"Failed to send experimental banner: {e}")
     
     def disconnect(self, session_id: str):
         """Disconnect a WebSocket client."""
@@ -60,8 +75,8 @@ async def live_api_websocket(websocket: WebSocket, session_id: str):
     WebSocket endpoint for real-time Live API conversations.
     
     Supports:
-    - Text and audio input/output
-    - Tool execution
+    - Text input/output
+    - Audio input (simplified)
     - Session management
     - Real-time streaming responses
     """
@@ -147,6 +162,8 @@ async def _handle_audio_message(session_id: str, data: Dict[str, Any]):
     try:
         audio_content = data.get("content", "")
         language = data.get("language", "en")
+        audio_format = data.get("format")
+        sample_rate = data.get("sample_rate")
         
         if not audio_content:
             await connection_manager.send_message(session_id, {
@@ -155,12 +172,14 @@ async def _handle_audio_message(session_id: str, data: Dict[str, Any]):
             })
             return
         
-        # Process with Live API agent
+        # Process with Live API agent (simplified audio handling)
         async for response_chunk in live_api_agent.process_realtime_input(
             session_id=session_id,
             content=audio_content,
             media_type="audio",
-            language=language
+            language=language,
+            audio_format=audio_format,
+            sample_rate=sample_rate
         ):
             # Send each chunk immediately
             await connection_manager.send_message(session_id, {
@@ -272,7 +291,7 @@ async def get_session_status(session_id: str):
 async def cleanup_all_sessions():
     """Clean up all active Live API sessions."""
     try:
-        live_api_agent.cleanup_all_sessions()
+        await live_api_agent.cleanup_all_sessions()
         
         # Close all WebSocket connections
         for session_id in list(connection_manager.active_connections.keys()):
@@ -289,10 +308,11 @@ async def cleanup_all_sessions():
 async def get_available_tools():
     """Get list of available tools for Live API."""
     try:
-        tools = live_api_agent.tools
+        tools = ["get_weather_info", "get_crop_information", "get_government_schemes"]
         return {
             "tools": tools,
-            "count": len(tools)
+            "count": len(tools),
+            "note": "Tools are simplified in experimental version"
         }
         
     except Exception as e:
@@ -317,7 +337,7 @@ async def test_live_api():
             "status": "success",
             "message": "Live API is working correctly",
             "model": live_api_agent.model,
-            "tools_available": len(live_api_agent.tools)
+            "note": "Simplified experimental version"
         }
         
     except Exception as e:

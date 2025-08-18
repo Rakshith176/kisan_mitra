@@ -6,6 +6,8 @@ from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi import WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlmodel import SQLModel, select
 
 from .config import settings
@@ -32,6 +34,7 @@ from .chat.router import router as chat_router
 from .chat.live_router import router as live_router
 from .rag.router import router as rag_router
 from .routers.crop_cycle import router as crop_cycle_router
+from .routers.market_prices import router as market_prices_router
 
 
 def create_app() -> FastAPI:
@@ -118,6 +121,10 @@ def create_app() -> FastAPI:
     # Crop Cycle endpoints
     # Exposed at: /crop_cycle/*
     app.include_router(crop_cycle_router)
+
+    # Market Prices endpoints
+    # Exposed at: /market/*
+    app.include_router(market_prices_router)
 
     # Chat history (for hydration)
     @app.get("/chat/messages", response_model=GetChatMessagesResponse)
@@ -315,7 +322,7 @@ def create_app() -> FastAPI:
         lat = lat or 12.9716
         lon = lon or 77.5946
 
-        # Build feed via independent generators
+        # Build feed via independent generators (now running in parallel)
         builder = FeedBuilder(
             generators=[WeatherOverviewGenerator(), DynamicCropTipsGenerator(), MarketPricesGenerator(), PriceTrendGenerator(), KarnatakaMarketGenerator(), KarnatakaLocationInsightsGenerator()]
         )
@@ -328,8 +335,8 @@ def create_app() -> FastAPI:
             pincode=profile.pincode if profile else None,
             crop_ids=None,
         )
-        logging.getLogger(__name__).info("Building feed cards for client_id=%s", client_id)
-        cards = await builder.build(ctx, limit=limit)
+        logging.getLogger(__name__).info("Building feed cards for client_id=%s (parallel execution)", client_id)
+        cards = await builder.build(ctx, limit=limit, timeout_seconds=60.0)
 
         return FeedResponse(
             client_id=client_id,
@@ -338,6 +345,20 @@ def create_app() -> FastAPI:
             cursor=None,
             has_more=False,
         )
+
+    # Mount static files for Flutter web build (after all API routes)
+    static_path = Path(__file__).resolve().parent.parent / "static"
+    if static_path.exists():
+        app.mount("/static", StaticFiles(directory=str(static_path), html=True), name="static")
+    
+    # Fallback route for SPA routing (must be last)
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        static_file = static_path / full_path
+        if static_file.exists() and static_file.is_file():
+            return FileResponse(str(static_file))
+        # Serve index.html for SPA routes
+        return FileResponse(str(static_path / "index.html"))
 
     return app
 

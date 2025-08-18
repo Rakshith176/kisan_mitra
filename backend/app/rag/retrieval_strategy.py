@@ -198,15 +198,15 @@ class RetrievalStrategy:
             
             metadata = result.get('metadata', {})
             section = metadata.get('document_section', 'unknown')
-            practice_type = metadata.get('practice_type', 'unknown')
+            practice_types = metadata.get('practice_type', ['unknown'])
             
             # Prefer chunks from different sections and practice types
             if (section not in used_sections and 
-                practice_type not in used_practice_types):
+                not any(pt in used_practice_types for pt in practice_types)):
                 chunk = self._result_to_chunk(result)
                 selected_chunks.append(chunk)
                 used_sections.add(section)
-                used_practice_types.add(practice_type)
+                used_practice_types.update(practice_types)
             elif len(selected_chunks) < self.config.final_result_limit // 2:
                 # Allow some from same section/practice type
                 chunk = self._result_to_chunk(result)
@@ -236,7 +236,7 @@ class RetrievalStrategy:
             crop_category=metadata.get('crop_category', []),
             crop_specific=metadata.get('crop_specific', []),
             season=metadata.get('season', []),
-            practice_type=metadata.get('practice_type', 'unknown'),
+            practice_type=metadata.get('practice_type', ['unknown']),
             compliance_level=metadata.get('compliance_level', 'basic'),
             chunk_size_tokens=metadata.get('chunk_size_tokens', 0),
             chunk_position=metadata.get('chunk_position', 0),

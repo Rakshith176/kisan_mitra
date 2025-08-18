@@ -252,22 +252,22 @@ class AgriculturalChunker:
             metadata=metadata
         )
     
-    def _classify_practice_type(self, section_name: str) -> str:
+    def _classify_practice_type(self, section_name: str) -> List[str]:
         """Classify the practice type based on section name.
         
         Args:
             section_name: Name of the section
             
         Returns:
-            Practice type classification
+            Practice type classification as a list
         """
         section_lower = section_name.lower()
         
         for practice_type, keywords in self.agricultural_keywords.items():
             if any(keyword in section_lower for keyword in keywords):
-                return practice_type
+                return [practice_type]
         
-        return "general"
+        return ["general"]
     
     def _extract_crop_categories(self, content: str) -> List[str]:
         """Extract crop categories from content.

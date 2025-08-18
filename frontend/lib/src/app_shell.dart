@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'feed/feed_screen.dart';
 import 'state/client_provider.dart';
-import 'chat/chat_screen.dart';
-import '../screens/live_chat_screen.dart';
+import '../screens/chat_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/settings_provider.dart';
 import 'repositories/profile_repository.dart';
@@ -82,7 +81,7 @@ class _ChatTab extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => LiveChatScreen(),
+                  builder: (context) => const ChatScreen(),
                 ),
               );
             },
@@ -107,7 +106,7 @@ class _ChatTab extends StatelessWidget {
         
         // Existing Chat Screen
         Expanded(
-          child: ChatScreen(language: lang),
+          child: const ChatScreen(),
         ),
       ],
     );

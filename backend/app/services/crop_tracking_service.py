@@ -1517,6 +1517,206 @@ Provide optimized task sequence in the following JSON format:
             logger.error(f"Error exporting tracker: {e}")
             return False
 
+    async def _prepare_llm_context_for_checklist(
+        self,
+        crop_name: str,
+        crop_variety: str,
+        planting_date: date,
+        farmer_profile: Dict[str, Any],
+        weather_forecast: Optional[Dict[str, Any]] = None,
+        soil_conditions: Optional[Dict[str, Any]] = None,
+        market_conditions: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Prepare context for LLM-based checklist generation"""
+        try:
+            # Convert planting_date to string if it's a date object
+            if isinstance(planting_date, str):
+                planting_date_obj = datetime.strptime(planting_date, "%Y-%m-%d").date()
+            else:
+                planting_date_obj = planting_date
+                
+            context = {
+                "crop_name": crop_name,
+                "crop_variety": crop_variety,
+                "planting_date": planting_date_obj.isoformat(),
+                "days_since_planting": (datetime.now().date() - planting_date_obj).days,
+                "farmer_profile": {
+                    "experience_years": farmer_profile.get("experience_years", 0),
+                    "farm_size": farmer_profile.get("farm_size", 1.0),
+                    "irrigation_type": farmer_profile.get("irrigation_type", "rainfed"),
+                    "location": farmer_profile.get("location", {}),
+                }
+            }
+            
+            if weather_forecast:
+                context["weather_forecast"] = weather_forecast
+                
+            if soil_conditions:
+                context["soil_conditions"] = soil_conditions
+                
+            if market_conditions:
+                context["market_conditions"] = market_conditions
+                
+            return context
+            
+        except Exception as e:
+            logger.error(f"Error preparing LLM context: {e}")
+            return {}
+
+    async def _generate_llm_checklist(self, context: Dict[str, Any]) -> Optional[str]:
+        """Generate checklist using LLM"""
+        try:
+            if not self.llm_available or not self.smart_checklist_prompt:
+                return None
+                
+            # Get farmer profile from context
+            farmer_profile = context.get("farmer_profile", {})
+            
+            # Format the prompt with all required parameters
+            prompt = self.smart_checklist_prompt.format(
+                crop_name=context.get("crop_name", "crop"),
+                crop_variety=context.get("crop_variety", "standard"),
+                planting_date=context.get("planting_date", ""),
+                location=farmer_profile.get("location", {}).get("name", "Karnataka, India"),
+                farm_size=farmer_profile.get("farm_size", 1.0),
+                experience_years=farmer_profile.get("experience_years", 0),
+                irrigation_type=farmer_profile.get("irrigation_type", "rainfed"),
+                language="English",
+                soil_health_summary="Good soil conditions with balanced nutrients",
+                weather_summary="Normal seasonal weather patterns",
+                market_summary="Stable market conditions for the crop"
+            )
+            
+            # Generate response using LLM
+            response = await self.llm.agenerate([prompt])
+            
+            if response and response.generations:
+                return response.generations[0][0].text
+                
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error generating LLM checklist: {e}")
+            return None
+
+    async def _convert_llm_checklist_to_tasks(
+        self,
+        llm_response: str,
+        planting_date: date
+    ) -> List[TrackingTask]:
+        """Convert LLM response to TrackingTask objects"""
+        try:
+            tasks = []
+            
+            if not llm_response:
+                return tasks
+                
+            # Convert planting_date to date object if it's a string
+            if isinstance(planting_date, str):
+                planting_date_obj = datetime.strptime(planting_date, "%Y-%m-%d").date()
+            else:
+                planting_date_obj = planting_date
+                
+            # Simple parsing of LLM response
+            lines = llm_response.split('\n')
+            task_id_counter = 1
+            
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                    
+                # Try to extract task information
+                if ':' in line or '-' in line:
+                    # Simple task parsing
+                    task_name = line.split(':')[0] if ':' in line else line.split('-')[0]
+                    task_name = task_name.strip().strip('*').strip('-').strip()
+                    
+                    if task_name and len(task_name) > 3:
+                        # Create a basic task
+                        task = TrackingTask(
+                            task_id=f"llm_task_{task_id_counter}",
+                            task_name=task_name,
+                            task_description=f"AI-generated task: {task_name}",
+                            task_type="action",
+                            due_date=planting_date_obj + timedelta(days=task_id_counter * 7),  # Spread tasks
+                            priority="medium"
+                        )
+                        tasks.append(task)
+                        task_id_counter += 1
+                        
+            return tasks
+            
+        except Exception as e:
+            logger.error(f"Error converting LLM checklist to tasks: {e}")
+            return []
+
+    async def _generate_rule_based_checklist(
+        self,
+        crop_name: str,
+        crop_variety: str,
+        planting_date: date,
+        farmer_profile: Dict[str, Any],
+        weather_forecast: Optional[Dict[str, Any]] = None,
+        soil_conditions: Optional[Dict[str, Any]] = None,
+        market_conditions: Optional[Dict[str, Any]] = None
+    ) -> List[TrackingTask]:
+        """Generate rule-based checklist as fallback"""
+        try:
+            logger.info(f"Generating rule-based checklist for {crop_name}")
+            
+            # Convert planting_date to date object if it's a string
+            if isinstance(planting_date, str):
+                planting_date_obj = datetime.strptime(planting_date, "%Y-%m-%d").date()
+            else:
+                planting_date_obj = planting_date
+            
+            # Start with basic tasks
+            base_tasks = await self._generate_initial_tasks(crop_name, planting_date_obj, None)
+            
+            # Enhance with AI-based customization
+            enhanced_tasks = await self._enhance_tasks_with_ai(
+                base_tasks, crop_name, crop_variety, farmer_profile
+            )
+            
+            # Adjust for weather conditions
+            if weather_forecast:
+                enhanced_tasks = await self._adjust_tasks_for_weather(
+                    enhanced_tasks, weather_forecast, planting_date_obj
+                )
+            
+            # Customize for soil conditions
+            if soil_conditions:
+                enhanced_tasks = await self._customize_tasks_for_soil(
+                    enhanced_tasks, soil_conditions
+                )
+            
+            # Optimize for market conditions
+            if market_conditions:
+                enhanced_tasks = await self._optimize_tasks_for_market(
+                    enhanced_tasks, market_conditions
+                )
+            
+            # Personalize for farmer profile
+            enhanced_tasks = await self._personalize_tasks_for_farmer(
+                enhanced_tasks, farmer_profile
+            )
+            
+            # Sort by priority and due date
+            enhanced_tasks.sort(key=lambda x: (self._get_priority_score(x.priority), x.due_date))
+            
+            logger.info(f"Generated {len(enhanced_tasks)} rule-based tasks for {crop_name}")
+            return enhanced_tasks
+            
+        except Exception as e:
+            logger.error(f"Error generating rule-based checklist: {e}")
+            # Fallback to basic tasks
+            if isinstance(planting_date, str):
+                planting_date_obj = datetime.strptime(planting_date, "%Y-%m-%d").date()
+            else:
+                planting_date_obj = planting_date
+            return await self._generate_initial_tasks(crop_name, planting_date_obj, None)
+
 # Example usage and testing
 async def test_crop_tracking_service():
     """Test the crop tracking service"""

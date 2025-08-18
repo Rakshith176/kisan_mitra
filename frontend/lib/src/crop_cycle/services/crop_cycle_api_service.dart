@@ -133,7 +133,7 @@ class CropCycleApiService {
     }
   }
 
-  // Delete a crop cycle
+  // Delete crop cycle
   Future<void> deleteCropCycle(String cycleId, String clientId) async {
     try {
       final response = await http.delete(
@@ -142,66 +142,23 @@ class CropCycleApiService {
       );
       
       if (response.statusCode != 204) {
-        throw Exception('Failed to delete crop cycle');
+        throw Exception('Failed to delete crop cycle: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to delete crop cycle: $e');
     }
   }
 
-  // Get tasks for a crop cycle
-  Future<List<CropTask>> getCropTasks(String cycleId, String clientId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks?client_id=$clientId'),
-        headers: _headers,
-      );
-      
-      final data = _handleResponse(response);
-      final List<dynamic> tasks = data['items'] ?? [];
-      
-      final List<CropTask> result = [];
-      for (int i = 0; i < tasks.length; i++) {
-        try {
-          if (tasks[i] is! Map<String, dynamic>) {
-            print('Error: tasks[$i] is not a Map. Type: ${tasks[i].runtimeType}, Value: ${tasks[i]}');
-            continue;
-          }
-          result.add(CropTask.fromJson(tasks[i]));
-        } catch (parseError) {
-          print('Error parsing task at index $i: $parseError');
-          print('Raw data: ${tasks[i]}');
-          print('Data type: ${tasks[i].runtimeType}');
-        }
-      }
-      
-      return result;
-    } catch (e) {
-      throw Exception('Failed to fetch crop tasks: $e');
-    }
-  }
-
   // Create a new task
   Future<CropTask> createTask(String cycleId, Map<String, dynamic> taskData) async {
     try {
-      // Extract clientId from taskData and add it as query parameter
-      final clientId = taskData['clientId'];
-      final taskDataWithoutClientId = Map<String, dynamic>.from(taskData);
-      taskDataWithoutClientId.remove('clientId');
-      
       final response = await http.post(
-        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks?client_id=$clientId'),
+        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks'),
         headers: _headers,
-        body: json.encode(taskDataWithoutClientId),
+        body: json.encode(taskData),
       );
       
       final data = _handleResponse(response);
-      
-      // Validate data is a Map before parsing
-      if (data is! Map<String, dynamic>) {
-        throw Exception('Invalid response format: expected Map<String, dynamic>, got ${data.runtimeType}');
-      }
-      
       return CropTask.fromJson(data);
     } catch (e) {
       throw Exception('Failed to create task: $e');
@@ -211,24 +168,13 @@ class CropCycleApiService {
   // Update a task
   Future<CropTask> updateTask(String cycleId, String taskId, Map<String, dynamic> taskData) async {
     try {
-      // Extract clientId from taskData and add it as query parameter
-      final clientId = taskData['clientId'];
-      final taskDataWithoutClientId = Map<String, dynamic>.from(taskData);
-      taskDataWithoutClientId.remove('clientId');
-      
       final response = await http.put(
-        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks/$taskId?client_id=$clientId'),
+        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks/$taskId'),
         headers: _headers,
-        body: json.encode(taskDataWithoutClientId),
+        body: json.encode(taskData),
       );
       
       final data = _handleResponse(response);
-      
-      // Validate data is a Map before parsing
-      if (data is! Map<String, dynamic>) {
-        throw Exception('Invalid response format: expected Map<String, dynamic>, got ${data.runtimeType}');
-      }
-      
       return CropTask.fromJson(data);
     } catch (e) {
       throw Exception('Failed to update task: $e');
@@ -236,18 +182,137 @@ class CropCycleApiService {
   }
 
   // Delete a task
-  Future<void> deleteTask(String cycleId, String taskId, String clientId) async {
+  Future<void> deleteTask(String cycleId, String taskId) async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks/$taskId?client_id=$clientId'),
+        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks/$taskId'),
         headers: _headers,
       );
       
       if (response.statusCode != 204) {
-        throw Exception('Failed to delete task');
+        throw Exception('Failed to delete task: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to delete task: $e');
+    }
+  }
+
+  // Get tasks for a crop cycle
+  Future<List<CropTask>> getTasks(String cycleId, String clientId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks?client_id=$clientId'),
+        headers: _headers,
+      );
+      
+      final data = _handleResponse(response);
+      final List<dynamic> tasks = data is List ? data : [];
+      
+      return tasks.map((task) => CropTask.fromJson(task)).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch tasks: $e');
+    }
+  }
+
+  // Update task status
+  Future<CropTask> updateTaskStatus(String cycleId, String taskId, String status, String clientId, {String? notes, DateTime? completedAt}) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/crop-cycle/$cycleId/tasks/$taskId?client_id=$clientId'),
+        headers: _headers,
+        body: json.encode({
+          'status': status,
+          if (notes != null) 'notes': notes,
+          if (completedAt != null) 'completedDate': completedAt?.toIso8601String(),
+        }),
+      );
+      
+      final data = _handleResponse(response);
+      return CropTask.fromJson(data);
+    } catch (e) {
+      throw Exception('Failed to update task status: $e');
+    }
+  }
+
+  // Add observation to crop cycle
+  Future<Map<String, dynamic>> addObservation(String cycleId, Map<String, dynamic> observationData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/crop-cycle/$cycleId/observations'),
+        headers: _headers,
+        body: json.encode(observationData),
+      );
+      
+      return _handleResponse(response);
+    } catch (e) {
+      throw Exception('Failed to add observation: $e');
+    }
+  }
+
+  // Generate smart checklist
+  Future<List<CropTask>> generateSmartChecklist(String cycleId, String clientId) async {
+    try {
+      // First get the crop cycle details to extract required information
+      final cropCycle = await getCropCycle(cycleId, clientId);
+      
+      // Prepare the request body with required parameters
+      final requestBody = {
+        'crop_name': cropCycle.crop?.nameEn ?? 'rice', // Default fallback
+        'crop_variety': cropCycle.variety ?? 'standard', // Default fallback
+        'planting_date': cropCycle.startDate.toIso8601String().split('T')[0], // YYYY-MM-DD format
+        'include_weather': true,
+        'include_soil': true,
+        'include_market': true,
+      };
+      
+      // The backend expects /crop-cycle/smart-checklist (with the router prefix)
+      final response = await http.post(
+        Uri.parse('$baseUrl/crop-cycle/smart-checklist?client_id=$clientId'),
+        headers: _headers,
+        body: json.encode(requestBody),
+      );
+      
+      final data = _handleResponse(response);
+      
+      // Backend returns list directly, not wrapped in 'tasks'
+      final List<dynamic> tasks = data is List ? data : [];
+      
+      return tasks.map((task) => CropTask.fromJson(task)).toList();
+    } catch (e) {
+      throw Exception('Failed to generate smart checklist: $e');
+    }
+  }
+
+  // Get crop cycle analytics
+  Future<Map<String, dynamic>> getCropCycleAnalytics(String cycleId, String clientId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/crop-cycle/$cycleId/analytics?client_id=$clientId'),
+        headers: _headers,
+      );
+      
+      return _handleResponse(response);
+    } catch (e) {
+      throw Exception('Failed to fetch analytics: $e');
+    }
+  }
+
+  // Update crop cycle status
+  Future<CropCycle> updateCropCycleStatus(String cycleId, String status, {String? notes}) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/crop-cycle/$cycleId'),
+        headers: _headers,
+        body: json.encode({
+          'status': status,
+          if (notes != null) 'notes': notes,
+        }),
+      );
+      
+      final data = _handleResponse(response);
+      return CropCycle.fromJson(data);
+    } catch (e) {
+      throw Exception('Failed to update crop cycle status: $e');
     }
   }
 
@@ -307,34 +372,19 @@ class CropCycleApiService {
   }
 
   // Acknowledge a risk alert
-  Future<RiskAlert> acknowledgeRisk(String cycleId, String riskId, String clientId) async {
+  Future<void> acknowledgeRisk(String cycleId, String riskId, String clientId) async {
     try {
-      final response = await http.put(
+      final response = await http.patch(
         Uri.parse('$baseUrl/crop-cycle/$cycleId/risks/$riskId/acknowledge?client_id=$clientId'),
         headers: _headers,
-        body: json.encode({'acknowledged_at': DateTime.now().toIso8601String()}),
+        body: json.encode({}),
       );
       
-      final data = _handleResponse(response);
-      return RiskAlert.fromJson(data);
+      if (response.statusCode != 200) {
+        throw Exception('Failed to acknowledge risk: ${response.statusCode}');
+      }
     } catch (e) {
       throw Exception('Failed to acknowledge risk: $e');
-    }
-  }
-
-  // Generate smart checklist
-  Future<SmartChecklistResponse> generateSmartChecklist(SmartChecklistRequest request) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/crop-cycle/smart-checklist'),
-        headers: _headers,
-        body: json.encode(request.toJson()),
-      );
-      
-      final data = _handleResponse(response);
-      return SmartChecklistResponse.fromJson(data);
-    } catch (e) {
-      throw Exception('Failed to generate smart checklist: $e');
     }
   }
 

@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../l10n/app_localizations.dart';
 import 'state/settings_provider.dart';
-import 'repositories/profile_repository.dart';
 import 'onboarding/signup_page.dart';
 
 class OnboardingScreen extends ConsumerWidget {

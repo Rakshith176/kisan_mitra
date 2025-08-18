@@ -18,7 +18,7 @@ class ChunkMetadata(BaseModel):
     season: List[str] = Field(default_factory=list, description="Applicable seasons")
     
     # Practice Information
-    practice_type: str = Field(..., description="Types of agricultural practices")
+    practice_type: List[str] = Field(default_factory=list, description="Types of agricultural practices")
     region: List[str] = Field(default_factory=list, description="Geographic regions")
     
     # Government Scheme Specific Fields

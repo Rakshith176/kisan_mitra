@@ -167,8 +167,8 @@ class RAGService:
             doc_types[doc_type] = doc_types.get(doc_type, 0) + 1
             
             # Practice types
-            practice_type = chunk.metadata.practice_type
-            practice_types[practice_type] = practice_types.get(practice_type, 0) + 1
+            for practice_type in chunk.metadata.practice_type:
+                practice_types[practice_type] = practice_types.get(practice_type, 0) + 1
             
             # Crop categories
             crop_categories.update(chunk.metadata.crop_category)
@@ -203,8 +203,8 @@ class RAGService:
         # Analyze practice types
         practice_counts = {}
         for chunk in chunks:
-            practice = chunk.metadata.practice_type
-            practice_counts[practice] = practice_counts.get(practice, 0) + 1
+            for practice in chunk.metadata.practice_type:
+                practice_counts[practice] = practice_counts.get(practice, 0) + 1
         
         # Suggest actions based on dominant practice types
         for practice, count in sorted(practice_counts.items(), key=lambda x: x[1], reverse=True):
@@ -248,7 +248,7 @@ class RAGService:
         # Filter by practice type
         if "practice_type" in filter_criteria:
             practice_type = filter_criteria["practice_type"]
-            filtered_chunks = [c for c in filtered_chunks if c.metadata.practice_type == practice_type]
+            filtered_chunks = [c for c in filtered_chunks if practice_type in c.metadata.practice_type]
         
         # Filter by compliance level
         if "compliance_level" in filter_criteria:

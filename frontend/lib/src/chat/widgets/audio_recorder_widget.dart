@@ -1,9 +1,12 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AudioRecorderWidget extends ConsumerStatefulWidget {
   final Function(List<int> audioBytes) onAudioRecorded;
@@ -26,6 +29,7 @@ class _AudioRecorderWidgetState extends ConsumerState<AudioRecorderWidget> {
   bool _isInitialized = false;
   Timer? _recordingTimer;
   int _recordingDuration = 0;
+  final AudioRecorder _audioRecorder = AudioRecorder();
 
   @override
   void initState() {
@@ -35,14 +39,23 @@ class _AudioRecorderWidgetState extends ConsumerState<AudioRecorderWidget> {
 
   Future<void> _initializeRecorder() async {
     try {
+      // Check if we're on web (audio recording not supported)
+      if (kIsWeb) {
+        _showSnackBar('Audio recording not supported on web. Please use the mobile app for voice features.');
+        return;
+      }
+
+      // Check if we're on a platform that supports audio recording
+      if (!await _audioRecorder.hasPermission()) {
+        _showSnackBar('Audio recording not supported on this platform');
+        return;
+      }
+
       // Check microphone permission
-      final status = await Permission.microphone.status;
-      if (status.isDenied) {
-        final result = await Permission.microphone.request();
-        if (result.isDenied) {
-          _showSnackBar('Microphone permission is required for voice recording');
-          return;
-        }
+      final status = await Permission.microphone.request();
+      if (status != PermissionStatus.granted) {
+        _showSnackBar('Microphone permission denied');
+        return;
       }
 
       setState(() => _isInitialized = true);
@@ -123,6 +136,19 @@ class _AudioRecorderWidgetState extends ConsumerState<AudioRecorderWidget> {
         return;
       }
 
+      // Start recording
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = '${tempDir.path}/temp_audio.wav';
+      
+      await _audioRecorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 24000, // Match backend expectation
+          bitRate: 256000,
+        ),
+        path: tempPath,
+      );
+
       setState(() => _isRecording = true);
       widget.onRecordingStarted?.call();
 
@@ -151,12 +177,21 @@ class _AudioRecorderWidgetState extends ConsumerState<AudioRecorderWidget> {
       
       widget.onRecordingStopped?.call();
 
-      // Simulate audio data for now
-      // In a production app, you'd want to use a proper audio recording plugin
-      final simulatedAudioBytes = List<int>.filled(16000, 0); // 1 second of silence
-      widget.onAudioRecorded(simulatedAudioBytes);
+      // Stop recording and get the file path
+      final path = await _audioRecorder.stop();
       
-      _showSnackBar('Audio recording completed! (Note: Using simulated audio data)');
+      if (path != null) {
+        final tempFile = File(path);
+        if (await tempFile.exists()) {
+          final audioBytes = await tempFile.readAsBytes();
+          widget.onAudioRecorded(audioBytes);
+          _showSnackBar('Audio recording completed!');
+        } else {
+          _showSnackBar('Error: Audio file not found');
+        }
+      } else {
+        _showSnackBar('Error: Failed to stop recording');
+      }
       
     } catch (e) {
       _showSnackBar('Error stopping recording: $e');

@@ -699,9 +699,96 @@ class _CropCycleDetailScreenState extends ConsumerState<CropCycleDetailScreen>
   }
 
   void _addNewObservation() {
-    // TODO: Navigate to add observation screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add Observation - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String observationType = 'general';
+        String description = '';
+        String notes = '';
+        
+        return AlertDialog(
+          title: const Text('Add New Observation'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Observation Type',
+                  border: OutlineInputBorder(),
+                ),
+                value: observationType,
+                items: const [
+                  DropdownMenuItem(value: 'general', child: Text('General')),
+                  DropdownMenuItem(value: 'weather', child: Text('Weather')),
+                  DropdownMenuItem(value: 'pest', child: Text('Pest/Disease')),
+                  DropdownMenuItem(value: 'growth', child: Text('Growth Progress')),
+                  DropdownMenuItem(value: 'soil', child: Text('Soil Condition')),
+                ],
+                onChanged: (value) => observationType = value ?? 'general',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (value) => description = value,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Additional Notes (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+                onChanged: (value) => notes = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (description.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a description'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
+                Navigator.of(context).pop();
+                
+                // Add observation
+                await ref.read(tasksProvider((widget.cycleId, widget.clientId)).notifier)
+                    .addObservation(widget.cycleId, {
+                  'observationType': observationType,
+                  'description': description,
+                  'notes': notes.isNotEmpty ? notes : null,
+                  'observedAt': DateTime.now().toIso8601String(),
+                  'clientId': widget.clientId,
+                });
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Observation added successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Add Observation'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -718,44 +805,250 @@ class _CropCycleDetailScreenState extends ConsumerState<CropCycleDetailScreen>
   }
 
   void _markTaskComplete(CropTask task) {
-    // TODO: Implement mark complete
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mark Complete - Coming Soon!')),
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String notes = '';
+        return AlertDialog(
+          title: const Text('Mark Task Complete'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Are you sure you want to mark "${task.title}" as complete?'),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Completion Notes (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (value) => notes = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                
+                // Update task status
+                await ref.read(tasksProvider((widget.cycleId, widget.clientId)).notifier)
+                    .updateTaskStatus(widget.cycleId, task.id, 'completed', widget.clientId, notes: notes.isNotEmpty ? notes : null, completedAt: DateTime.now());
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Task marked as complete!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Complete'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _markTaskDelayed(CropTask task) {
-    // TODO: Implement mark delayed
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mark Delayed - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String notes = '';
+        return AlertDialog(
+          title: const Text('Mark Task Delayed'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Are you sure you want to mark "${task.title}" as delayed?'),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Delay Reason (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (value) => notes = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                
+                // Update task status
+                await ref.read(tasksProvider((widget.cycleId, widget.clientId)).notifier)
+                    .updateTaskStatus(widget.cycleId, task.id, 'delayed', widget.clientId, notes: notes.isNotEmpty ? notes : null);
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Task marked as delayed!'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Mark Delayed'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _skipTask(CropTask task) {
-    // TODO: Implement skip task
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Skip Task - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String notes = '';
+        return AlertDialog(
+          title: const Text('Skip Task'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Are you sure you want to skip "${task.title}"?'),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Skip Reason (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (value) => notes = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                
+                // Update task status
+                await ref.read(tasksProvider((widget.cycleId, widget.clientId)).notifier)
+                    .updateTaskStatus(widget.cycleId, task.id, 'skipped', widget.clientId, notes: notes.isNotEmpty ? notes : null);
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Task skipped!'),
+                      backgroundColor: Colors.blue,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Skip Task'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _addPhotosToTask(CropTask task) {
-    // TODO: Implement add photos
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add Photos - Coming Soon!')),
+    // TODO: Implement photo picker and upload
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add Photos'),
+          content: const Text('Photo integration coming soon! This will allow you to document task progress with images.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _recordVoiceForTask(CropTask task) {
     // TODO: Implement voice recording
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Voice Recording - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Voice Recording'),
+          content: const Text('Voice recording integration coming soon! This will allow you to add voice notes to tasks.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _addNotesToTask(CropTask task) {
-    // TODO: Implement add notes
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add Notes - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String notes = task.notes ?? '';
+        return AlertDialog(
+          title: const Text('Add/Edit Notes'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Task Notes',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 5,
+                controller: TextEditingController(text: notes),
+                onChanged: (value) => notes = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                
+                // Update task with new notes
+                await ref.read(tasksProvider((widget.cycleId, widget.clientId)).notifier)
+                    .updateTask(widget.cycleId, task.id, {
+                  'notes': notes,
+                });
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Notes updated successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Save Notes'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -767,30 +1060,113 @@ class _CropCycleDetailScreenState extends ConsumerState<CropCycleDetailScreen>
   }
 
   void _deleteCropCycle() {
-    // TODO: Implement delete
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Delete Crop Cycle - Coming Soon!')),
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Crop Cycle'),
+          content: const Text('Are you sure you want to delete this crop cycle? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                
+                try {
+                  await ref.read(cropCycleApiServiceProvider).deleteCropCycle(widget.cycleId, widget.clientId);
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Crop cycle deleted successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    
+                    // Navigate back to previous screen
+                    Navigator.of(context).pop();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to delete crop cycle: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   void _shareCropCycle() {
-    // TODO: Implement share
+    // TODO: Implement share functionality
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Share - Coming Soon!')),
+      const SnackBar(content: Text('Share functionality coming soon!')),
     );
   }
 
   void _exportData() {
-    // TODO: Implement export
+    // TODO: Implement export functionality
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export Data - Coming Soon!')),
+      const SnackBar(content: Text('Export functionality coming soon!')),
     );
   }
 
-  void _generateSmartChecklist() {
-    // TODO: Implement smart checklist
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Smart Checklist - Coming Soon!')),
-    );
+  void _generateSmartChecklist() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const AlertDialog(
+            content: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('Generating smart checklist...'),
+              ],
+            ),
+          );
+        },
+      );
+      
+      // Generate smart checklist
+      await ref.read(tasksProvider((widget.cycleId, widget.clientId)).notifier)
+          .generateSmartChecklist(widget.cycleId, widget.clientId);
+      
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Smart checklist generated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate smart checklist: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

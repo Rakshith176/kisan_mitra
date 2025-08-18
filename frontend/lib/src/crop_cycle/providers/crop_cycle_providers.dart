@@ -187,7 +187,7 @@ class TasksNotifier extends StateNotifier<TasksState> {
   Future<void> fetchTasks(String cycleId, String clientId) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
-      final tasks = await _apiService.getCropTasks(cycleId, clientId);
+      final tasks = await _apiService.getTasks(cycleId, clientId);
       state = state.copyWith(
         tasks: tasks,
         isLoading: false,
@@ -198,6 +198,60 @@ class TasksNotifier extends StateNotifier<TasksState> {
         error: e.toString(),
       );
     }
+  }
+
+  Future<void> updateTaskStatus(String cycleId, String taskId, String status, String clientId, {String? notes, DateTime? completedAt}) async {
+    try {
+      final updatedTask = await _apiService.updateTaskStatus(cycleId, taskId, status, clientId, notes: notes, completedAt: completedAt);
+      
+      // Update the task in the state
+      final updatedTasks = state.tasks.map((task) {
+        if (task.id == taskId) {
+          return updatedTask;
+        }
+        return task;
+      }).toList();
+      
+      state = state.copyWith(tasks: updatedTasks);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> addObservation(String cycleId, Map<String, dynamic> observationData) async {
+    try {
+      await _apiService.addObservation(cycleId, observationData);
+      // Refresh tasks to get updated data
+      await fetchTasks(cycleId, observationData['clientId'] ?? '');
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> generateSmartChecklist(String cycleId, String clientId) async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final newTasks = await _apiService.generateSmartChecklist(cycleId, clientId);
+      
+      // Merge new tasks with existing ones, avoiding duplicates
+      final existingTaskIds = state.tasks.map((task) => task.id).toSet();
+      final uniqueNewTasks = newTasks.where((task) => !existingTaskIds.contains(task.id)).toList();
+      
+      final allTasks = [...state.tasks, ...uniqueNewTasks];
+      state = state.copyWith(
+        tasks: allTasks,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  void clearError() {
+    state = state.copyWith(error: null);
   }
 
   Future<void> createTask(String cycleId, Map<String, dynamic> taskData) async {
@@ -235,25 +289,14 @@ class TasksNotifier extends StateNotifier<TasksState> {
     }
   }
 
-  Future<void> deleteTask(String cycleId, String taskId, String clientId) async {
+  Future<void> deleteTask(String cycleId, String taskId) async {
     try {
-      state = state.copyWith(isLoading: true, error: null);
-      await _apiService.deleteTask(cycleId, taskId, clientId);
+      await _apiService.deleteTask(cycleId, taskId);
       final updatedTasks = state.tasks.where((task) => task.id != taskId).toList();
-      state = state.copyWith(
-        tasks: updatedTasks,
-        isLoading: false,
-      );
+      state = state.copyWith(tasks: updatedTasks);
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      state = state.copyWith(error: e.toString());
     }
-  }
-
-  void clearError() {
-    state = state.copyWith(error: null);
   }
 }
 

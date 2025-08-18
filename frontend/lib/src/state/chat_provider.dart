@@ -72,6 +72,7 @@ class ChatState {
   final List<int> audioBuffer; // assembled PCM chunks (bytes)
   final bool loadingConversations;
   final bool loadingMessages;
+  final String language; // current language for the session
   
   const ChatState({
     required this.messages,
@@ -83,6 +84,7 @@ class ChatState {
     required this.audioBuffer,
     required this.loadingConversations,
     required this.loadingMessages,
+    required this.language,
   });
 
   ChatState copyWith({
@@ -95,6 +97,7 @@ class ChatState {
     List<int>? audioBuffer,
     bool? loadingConversations,
     bool? loadingMessages,
+    String? language,
   }) => ChatState(
         messages: messages ?? this.messages,
         conversations: conversations ?? this.conversations,
@@ -105,6 +108,7 @@ class ChatState {
         audioBuffer: audioBuffer ?? this.audioBuffer,
         loadingConversations: loadingConversations ?? this.loadingConversations,
         loadingMessages: loadingMessages ?? this.loadingMessages,
+        language: language ?? this.language,
       );
 
   factory ChatState.initial() => const ChatState(
@@ -117,6 +121,7 @@ class ChatState {
         audioBuffer: [],
         loadingConversations: false,
         loadingMessages: false,
+        language: 'en',
       );
 }
 
@@ -136,13 +141,15 @@ class ChatController extends StateNotifier<ChatState> {
   }) async {
     try {
       state = state.copyWith(connecting: true);
-      final url = ApiConfig.wsChat(sessionId, clientId, language);
+      // Use Live API endpoint for real-time audio support
+      final url = ApiConfig.wsLiveAPI(sessionId, clientId, language);
       _channel = WebSocketChannel.connect(Uri.parse(url));
       _sub = _channel!.stream.listen(_onMessage, onDone: _onDone, onError: _onError);
       state = state.copyWith(
         connecting: false, 
         connected: true,
         currentConversationId: conversationId,
+        language: language,
       );
     } catch (e) {
       state = state.copyWith(connecting: false, connected: false);
@@ -271,18 +278,58 @@ class ChatController extends StateNotifier<ChatState> {
     try {
       final msg = jsonDecode(data as String) as Map<String, dynamic>;
       
-      // Handle different message types from the new backend
+      // Handle Live API message types
       final messageType = msg['type'] as String?;
       
-      if (messageType == 'connected') {
-        // Welcome message - no action needed
+      if (messageType == 'live_response') {
+        // Live API response with chunks
+        final chunk = msg['chunk'] as Map<String, dynamic>?;
+        if (chunk != null) {
+          final text = chunk['text'] as String?;
+          final audio = chunk['audio'] as String?;
+          final turnComplete = chunk['turn_complete'] as bool? ?? false;
+          
+          // Handle text response
+          if (text != null && text.isNotEmpty) {
+            final id = const Uuid().v4();
+            final m = ChatMessage(
+              id: id, 
+              role: 'assistant', 
+              type: 'text', 
+              text: text, 
+              createdAt: DateTime.now()
+            );
+            state = state.copyWith(
+              messages: [...state.messages, m],
+              typingText: '',
+            );
+            
+            // Update conversation preview
+            _updateConversationPreview(text);
+          }
+          
+          // Handle audio response
+          if (audio != null && audio.isNotEmpty) {
+            final bytes = base64Decode(audio);
+            final combined = [...state.audioBuffer, ...bytes];
+            state = state.copyWith(audioBuffer: combined);
+          }
+          
+          // Check if turn is complete
+          if (turnComplete) {
+            // Turn completed, no more chunks expected
+            state = state.copyWith(typingText: '');
+          }
+        }
         return;
       }
       
       if (messageType == 'response') {
-        final responseData = msg['data'] as Map<String, dynamic>?;
-        if (responseData != null) {
-          final text = responseData['text'] as String? ?? '';
+        // Direct response (fallback)
+        final text = msg['text'] as String?;
+        final audio = msg['audio'] as String?;
+        
+        if (text != null && text.isNotEmpty) {
           final id = const Uuid().v4();
           final m = ChatMessage(
             id: id, 
@@ -299,12 +346,17 @@ class ChatController extends StateNotifier<ChatState> {
           // Update conversation preview
           _updateConversationPreview(text);
         }
+        
+        if (audio != null && audio.isNotEmpty) {
+          final bytes = base64Decode(audio);
+          final combined = [...state.audioBuffer, ...bytes];
+          state = state.copyWith(audioBuffer: combined);
+        }
         return;
       }
       
       if (messageType == 'error') {
-        final errorData = msg['data'] as Map<String, dynamic>?;
-        final errorMessage = errorData?['error'] as String? ?? 'Unknown error occurred';
+        final errorMessage = msg['message'] as String? ?? msg['text'] as String? ?? 'Unknown error occurred';
         // Add error message to chat
         final id = const Uuid().v4();
         final m = ChatMessage(
@@ -321,15 +373,9 @@ class ChatController extends StateNotifier<ChatState> {
         return;
       }
       
-      // Handle audio responses if present
-      final responseData = msg['data'] as Map<String, dynamic>?;
-      if (responseData != null) {
-        final audioData = responseData['audio'] as String?;
-        if (audioData != null && audioData.isNotEmpty) {
-          final bytes = base64Decode(audioData);
-          final combined = [...state.audioBuffer, ...bytes];
-          state = state.copyWith(audioBuffer: combined);
-        }
+      if (messageType == 'connected') {
+        // Welcome message - no action needed
+        return;
       }
       
     } catch (e) {
@@ -409,16 +455,11 @@ class ChatController extends StateNotifier<ChatState> {
   Future<void> sendText(String text) async {
     if (_channel == null) return;
     
-    // Use the new WebSocket message format that matches the backend
+    // Use the Live API WebSocket message format that matches the backend
     final payload = jsonEncode({
-      'type': 'request',
-      'data': {
-        'media_type': 'text',
-        'content': text,
-        'mime_type': 'text/plain'
-      },
-      'message_id': const Uuid().v4(),
-      'timestamp': DateTime.now().toIso8601String()
+      'type': 'text',
+      'content': text,
+      'language': state.language,
     });
     
     _channel!.sink.add(payload);
@@ -476,16 +517,13 @@ class ChatController extends StateNotifier<ChatState> {
     // Convert audio bytes to base64
     final audioBase64 = base64Encode(audioBytes);
     
-    // Use the new WebSocket message format that matches the backend
+    // Use the Live API WebSocket message format that matches the backend
     final payload = jsonEncode({
-      'type': 'request',
-      'data': {
-        'media_type': 'audio',
-        'content': audioBase64,
-        'mime_type': mimeType
-      },
-      'message_id': const Uuid().v4(),
-      'timestamp': DateTime.now().toIso8601String()
+      'type': 'audio',
+      'content': audioBase64,
+      'language': state.language,
+      'format': mimeType,
+      'sample_rate': 24000, // Match the recording sample rate
     });
     
     _channel!.sink.add(payload);
