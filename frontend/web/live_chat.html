@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Agricultural Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .chat-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .status {
+            padding: 12px 20px;
+            margin: 0;
+            border-radius: 0;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .connected { 
+            background: #d4edda; 
+            color: #155724;
+            border-bottom: 1px solid #c3e6cb;
+        }
+        
+        .disconnected { 
+            background: #f8d7da; 
+            color: #721c24;
+            border-bottom: 1px solid #f5c6cb;
+        }
+        
+        .messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin: 16px 0;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+            position: relative;
+        }
+        
+        .user-message {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 6px;
+        }
+        
+        .ai-message {
+            background: white;
+            color: #333;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .message-input:focus {
+            border-color: #4CAF50;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .tools-section {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .tools-section h3 {
+            margin-bottom: 16px;
+            color: #495057;
+            font-size: 16px;
+        }
+        
+        .tool-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .tool-btn {
+            background: white;
+            color: #4CAF50;
+            border: 2px solid #4CAF50;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tool-btn:hover {
+            background: #4CAF50;
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #6c757d;
+            padding: 40px 20px;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .recording-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: #dc3545;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        
+        .recording-indicator.show {
+            display: flex;
+        }
+        
+        .pulse {
+            width: 12px;
+            height: 12px;
+            background: #dc3545;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        @media (max-width: 768px) {
+            .chat-container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .message {
+                max-width: 85%;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            .tool-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">
+            <h1>🌾 Live Agricultural Assistant</h1>
+            <p>Real-time farming advice and support</p>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            <span id="statusIcon">❌</span>
+            <span id="statusText">Disconnected from Live API</span>
+        </div>
+        
+        <div id="recordingIndicator" class="recording-indicator">
+            <div class="pulse"></div>
+            Recording... Click stop when done
+        </div>
+        
+        <div id="messages" class="messages">
+            <div class="empty-state">
+                <div>💬</div>
+                <h3>Start a conversation</h3>
+                <p>Ask about farming, weather, government schemes, or use the quick action buttons below.</p>
+            </div>
+        </div>
+        
+        <div class="tools-section">
+            <h3>🚀 Quick Actions</h3>
+            <div class="tool-buttons">
+                <button class="tool-btn" onclick="requestTool('get_weather_info', {location: 'Karnataka', crop_type: 'rice'})">
+                    🌤️ Weather Info
+                </button>
+                <button class="tool-btn" onclick="requestTool('get_government_schemes', {scheme_name: 'PM KISAN', query_type: 'eligibility'})">
+                    🏛️ PM KISAN Info
+                </button>
+                <button class="tool-btn" onclick="requestTool('get_market_prices', {crop_name: 'rice'})">
+                    💰 Market Prices
+                </button>
+                <button class="tool-btn" onclick="requestTool('get_crop_advice', {crop_name: 'rice', growth_stage: 'vegetative'})">
+                    🌱 Crop Advice
+                </button>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    id="messageInput" 
+                    class="message-input" 
+                    placeholder="Ask about farming, weather, or government schemes..."
+                    onkeypress="handleKeyPress(event)"
+                >
+                <button id="sendBtn" class="btn btn-primary" onclick="sendTextMessage()">
+                    📤 Send
+                </button>
+                <button id="recordBtn" class="btn btn-secondary" onclick="toggleRecording()">
+                    🎤 Start Recording
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="live_api_client.js"></script>
+</body>
+</html>

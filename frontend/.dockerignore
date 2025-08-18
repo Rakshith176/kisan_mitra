@@ -1,0 +1,47 @@
+# Flutter build artifacts
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Test files
+test/
+test_*.dart
+
+# Documentation
+*.md
+README*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Android specific (not needed for web build)
+android/
+ios/
+linux/
+macos/
+windows/
+
+# Untranslated files
+untranslated.txt

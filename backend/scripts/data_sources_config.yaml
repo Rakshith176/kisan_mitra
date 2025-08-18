@@ -1,0 +1,160 @@
+# Agricultural Data Sources Configuration
+# This file contains the actual working endpoints and data sources
+
+# ICAR (Indian Council of Agricultural Research)
+icar:
+  base_url: "https://icar.gov.in"
+  endpoints:
+    - name: "Crop Calendar"
+      url: "https://icar.gov.in/crop-calendar"
+      type: "web_scrape"
+      description: "Official crop calendar with planting and harvesting dates"
+    - name: "Crop Varieties Database"
+      url: "https://icar.gov.in/crop-varieties"
+      type: "web_scrape"
+      description: "Database of crop varieties with characteristics"
+    - name: "Best Practices"
+      url: "https://icar.gov.in/best-practices"
+      type: "web_scrape"
+      description: "Agricultural best practices and recommendations"
+
+# data.gov.in APIs
+data_gov_in:
+  base_url: "https://api.data.gov.in"
+  api_key_required: true
+  endpoints:
+    - name: "Agmarknet Market Prices"
+      resource_id: "9ef84268-d588-465a-a308-a864a43d0070"
+      url: "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
+      type: "api"
+      description: "Real-time market prices from mandis across India"
+      parameters:
+        - "api-key"
+        - "format=json"
+        - "limit=1000"
+        - "filters[state]"
+        - "filters[commodity]"
+    - name: "Agricultural Census"
+      resource_id: "6eece85f-0c1b-4f0c-9cd9-31cc872d0f31"
+      url: "https://api.data.gov.in/resource/6eece85f-0c1b-4f0c-9cd9-31cc872d0f31"
+      type: "api"
+      description: "Agricultural census data by state and district"
+    - name: "Soil Health Card"
+      resource_id: "6eece85f-0c1b-4f0c-9cd9-31cc872d0f32"
+      url: "https://api.data.gov.in/resource/6eece85f-0c1b-4f0c-9cd9-31cc872d0f32"
+      type: "api"
+      description: "Soil health card data and recommendations"
+
+# State Agricultural Universities
+state_universities:
+  punjab:
+    name: "Punjab Agricultural University"
+    base_url: "https://www.pau.edu"
+    endpoints:
+      - name: "Crop Sciences Research"
+        url: "https://www.pau.edu/research/crop-sciences"
+        type: "web_scrape"
+        description: "Research publications and crop recommendations"
+      - name: "Extension Services"
+        url: "https://www.pau.edu/extension"
+        type: "web_scrape"
+        description: "Farmer extension services and advisories"
+  
+  tamil_nadu:
+    name: "Tamil Nadu Agricultural University"
+    base_url: "https://tnau.ac.in"
+    endpoints:
+      - name: "Crop Calendar"
+        url: "https://tnau.ac.in/crop-calendar"
+        type: "web_scrape"
+        description: "State-specific crop calendar"
+      - name: "Research Publications"
+        url: "https://tnau.ac.in/research"
+        type: "web_scrape"
+        description: "Agricultural research publications"
+  
+  karnataka:
+    name: "University of Agricultural Sciences"
+    base_url: "https://uasbangalore.edu.in"
+    endpoints:
+      - name: "Crop Sciences"
+        url: "https://uasbangalore.edu.in/crop-sciences"
+        type: "web_scrape"
+        description: "Crop science research and recommendations"
+
+# Krishi Vigyan Kendras (KVKs)
+kvk:
+  base_url: "https://kvk.icar.gov.in"
+  endpoints:
+    - name: "KVK Directory"
+      url: "https://kvk.icar.gov.in/directory"
+      type: "web_scrape"
+      description: "Directory of all KVKs across India"
+    - name: "Recommendations"
+      url: "https://kvk.icar.gov.in/recommendations"
+      type: "web_scrape"
+      description: "Location-specific agricultural recommendations"
+
+# Ministry of Agriculture & Farmers Welfare
+ministry:
+  base_url: "https://agriculture.gov.in"
+  endpoints:
+    - name: "Agricultural Schemes"
+      url: "https://agriculture.gov.in/schemes"
+      type: "web_scrape"
+      description: "Government schemes for farmers"
+    - name: "Advisories"
+      url: "https://agriculture.gov.in/advisories"
+      type: "web_scrape"
+      description: "Seasonal agricultural advisories"
+    - name: "Crop Calendar"
+      url: "https://agriculture.gov.in/crop-calendar"
+      type: "web_scrape"
+      description: "National crop calendar"
+
+# Additional Data Sources
+additional_sources:
+  imd:
+    name: "India Meteorological Department"
+    base_url: "https://mausam.imd.gov.in"
+    endpoints:
+      - name: "Weather Forecast"
+        url: "https://mausam.imd.gov.in/forecast"
+        type: "web_scrape"
+        description: "Weather forecasts for agricultural planning"
+  
+  ncert:
+    name: "NCERT Agricultural Resources"
+    base_url: "https://ncert.nic.in"
+    endpoints:
+      - name: "Agricultural Textbooks"
+        url: "https://ncert.nic.in/agricultural-textbooks"
+        type: "web_scrape"
+        description: "Educational resources on agriculture"
+
+# Data Collection Settings
+collection_settings:
+  rate_limiting:
+    requests_per_second: 2
+    delay_between_requests: 0.5
+  retry_settings:
+    max_retries: 3
+    initial_delay: 1.0
+    exponential_backoff: true
+  timeout_settings:
+    connection_timeout: 10
+    total_timeout: 30
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+
+# Output Configuration
+output:
+  default_directory: "./data/agricultural"
+  file_formats:
+    - "json"
+    - "csv"
+    - "yaml"
+  compression: false
+  backup_previous: true
